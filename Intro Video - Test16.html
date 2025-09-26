@@ -1,0 +1,329 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fullscreen Background Video</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+        }
+
+
+        /* --- Fullscreen Prompt Styles --- */
+        #fullscreen-prompt {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+
+
+        #start-button {
+            background-color: #007bff;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+        
+        #start-button:hover {
+            background-color: #0056b3;
+            transform: scale(1.05);
+        }
+
+
+        #start-button:disabled {
+            background-color: #555;
+            cursor: wait;
+        }
+
+
+        /* --- Video & Content Styles --- */
+        .fullscreen-video-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1; /* Puts the video behind all other content */
+        }
+
+
+        .fullscreen-video-container iframe {
+            width: 100vw;
+            height: 56.25vw;
+            min-height: 100vh;
+            min-width: 177.77vh;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        
+        .content {
+            position: relative;
+            z-index: 1;
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            height: 100vh; 
+        }
+
+
+        .play-button {
+            display: none;
+            background-color: #a4c2f4;
+            color: black;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.5rem;
+            font-family: Arial, sans-serif;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background-color 0.3s ease;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+
+        .play-button:hover {
+            background-color: #8db6f2;
+        }
+
+
+        /* --- On-screen Controls --- */
+        .control-button {
+            display: none; /* Hidden until player is ready */
+            position: fixed;
+            bottom: 45px; /* MOVED HIGHER to avoid overlap */
+            z-index: 100;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            font-size: 24px;
+            cursor: pointer;
+            line-height: 50px;
+            text-align: center;
+            transition: background-color 0.3s ease;
+        }
+        
+        .control-button:hover {
+            background-color: rgba(0, 0, 0, 0.8);
+        }
+
+
+        #playPauseBtn {
+            left: 20px;
+        }
+
+
+        #volumeControl {
+            right: 20px;
+        }
+
+
+        /* --- Progress Bar Styles --- */
+        #progressBarContainer {
+            display: none; /* Hide until video starts */
+            position: fixed;
+            bottom: 20px; /* MOVED LOWER */
+            left: 50%;
+            transform: translateX(-50%);
+            width: calc(100% - 160px); /* Full width minus space for controls */
+            max-width: 800px;
+            height: 8px;
+            background-color: rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+            cursor: pointer;
+            z-index: 100;
+        }
+
+
+        #progressBar {
+            width: 0%;
+            height: 100%;
+            background-color: #007bff;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+
+
+    <div id="fullscreen-prompt">
+        <h1>Welcome</h1>
+        <button id="start-button" disabled>Loading...</button>
+    </div>
+
+
+    <div class="fullscreen-video-container">
+        <div id="player"></div>
+    </div>
+    
+    <div class="content">
+        <button id="playButton" class="play-button">Play Now</button>
+    </div>
+
+
+    <div id="progressBarContainer">
+        <div id="progressBar"></div>
+    </div>
+    <button id="playPauseBtn" class="control-button">⏸️</button>
+    <button id="volumeControl" class="control-button">🔊</button>
+
+
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <script>
+      let player;
+      let timeInterval;
+      // Set to stop at 283 seconds (4 minutes, 43 seconds)
+      const stopTime = 283;
+
+
+      function onYouTubeIframeAPIReady() {
+        player = new YT.Player('player', {
+          videoId: 'znLfmYwDtDI',
+          playerVars: {
+            'autoplay': 0,
+            'mute': 0,
+            'controls': 0,
+            'showinfo': 0,
+            'modestbranding': 1,
+            'start': 0
+          },
+          events: {
+            'onReady': onPlayerReady,
+            'onStateChange': onPlayerStateChange
+          }
+        });
+      }
+
+
+      function onPlayerReady(event) {
+        const startBtn = document.getElementById('start-button');
+        const volumeBtn = document.getElementById('volumeControl');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const progressBarContainer = document.getElementById('progressBarContainer');
+        const playNowBtn = document.getElementById('playButton');
+
+
+        startBtn.disabled = false;
+        startBtn.textContent = 'Click to Begin';
+
+
+        startBtn.addEventListener('click', () => {
+          const elem = document.documentElement;
+          if (elem.requestFullscreen) {
+            elem.requestFullscreen();
+          } else if (elem.webkitRequestFullscreen) {
+            elem.webkitRequestFullscreen();
+          } else if (elem.msRequestFullscreen) {
+            elem.msRequestFullscreen();
+          }
+
+
+          document.getElementById('fullscreen-prompt').style.display = 'none';
+          player.playVideo();
+
+
+          volumeBtn.style.display = 'block';
+          playPauseBtn.style.display = 'block';
+          progressBarContainer.style.display = 'block';
+        });
+
+
+        volumeBtn.addEventListener('click', () => {
+          if (player.isMuted()) {
+            player.unMute();
+            volumeBtn.textContent = '🔊';
+          } else {
+            player.mute();
+            volumeBtn.textContent = '🔇';
+          }
+        });
+
+
+        playPauseBtn.addEventListener('click', () => {
+          const playerState = player.getPlayerState();
+          if (playerState === YT.PlayerState.PLAYING) {
+            player.pauseVideo();
+            playPauseBtn.textContent = '▶️';
+          } else {
+            player.playVideo();
+            playPauseBtn.textContent = '⏸️';
+          }
+        });
+        
+        progressBarContainer.addEventListener('click', (e) => {
+            const rect = progressBarContainer.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const containerWidth = progressBarContainer.offsetWidth;
+            const duration = player.getDuration();
+            
+            const newTime = (clickX / containerWidth) * duration;
+            player.seekTo(newTime, true);
+        });
+
+
+        playNowBtn.addEventListener('click', () => {
+            const url = 'https://web.ultradox.com/1MSO0ucX2wq-Z-ihJXkErxOCvhY523ZBA/-Run-1004-Answer-Wipeout%201';
+            const windowFeatures = `width=${screen.width},height=${screen.height},menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes`;
+            window.open(url, '_blank', windowFeatures);
+        });
+      }
+
+
+      function onPlayerStateChange(event) {
+        if (event.data == YT.PlayerState.PLAYING) {
+          timeInterval = setInterval(checkTime, 250);
+        } else {
+          clearInterval(timeInterval);
+        }
+      }
+
+
+      function checkTime() {
+        const currentTime = player.getCurrentTime();
+        const duration = player.getDuration();
+        
+        if (duration) {
+            const progressPercent = (currentTime / duration) * 100;
+            document.getElementById('progressBar').style.width = progressPercent + '%';
+        }
+
+
+        if (currentTime >= stopTime) {
+          player.stopVideo();
+          clearInterval(timeInterval);
+          
+          document.getElementById('playButton').style.display = 'inline-block';
+          
+          document.getElementById('volumeControl').style.display = 'none';
+          document.getElementById('playPauseBtn').style.display = 'none';
+          document.getElementById('progressBarContainer').style.display = 'none';
+        }
+      }
+    </script>
+
+
+</body>
+</html>
